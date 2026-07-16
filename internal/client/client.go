@@ -209,7 +209,3 @@ func parseAPIError(status int, body []byte) error {
 	return apiErr
 }
 
-// Temporary stubs; replaced by retry.go in the next task.
-func shouldRetry(status int) bool { return status == http.StatusTooManyRequests || status >= 500 }
-
-func retryDelay(_ *http.Response, _ int) time.Duration { return 0 }
