@@ -1,0 +1,13 @@
+# Binaries and release artifacts
+terraform-provider-claude-enterprise
+dist/
+
+# Terraform working files (examples)
+**/.terraform/
+**/.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+crash.log
+
+# OS / editor
+.DS_Store
