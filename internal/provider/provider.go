@@ -60,7 +60,8 @@ func (p *claudeEnterpriseProvider) Schema(_ context.Context, _ provider.SchemaRe
 // providerData is handed to every resource and data source via
 // resp.ResourceData / resp.DataSourceData.
 type providerData struct {
-	Client *client.Client
+	Client   *client.Client
+	Resolver *Resolver
 }
 
 // resolveAPIKey returns the effective key: explicit config wins over the
@@ -132,7 +133,7 @@ func (p *claudeEnterpriseProvider) Configure(ctx context.Context, req provider.C
 		return
 	}
 
-	data := &providerData{Client: c}
+	data := &providerData{Client: c, Resolver: NewResolver(c)}
 	resp.ResourceData = data
 	resp.DataSourceData = data
 }
