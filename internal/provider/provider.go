@@ -87,6 +87,29 @@ func (p *claudeEnterpriseProvider) Configure(ctx context.Context, req provider.C
 		return
 	}
 
+	// Unknown values (e.g. references to attributes computed only after
+	// apply) cannot be used to build the client; fail with guidance instead
+	// of silently falling back.
+	if config.AdminAPIKey.IsUnknown() {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("admin_api_key"),
+			"Unknown Admin API key",
+			"The provider cannot create the API client because admin_api_key depends on a value "+
+				"known only after apply. Set a static value or use the ANTHROPIC_ADMIN_KEY environment variable.",
+		)
+	}
+	if config.BaseURL.IsUnknown() {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("base_url"),
+			"Unknown API base URL",
+			"The provider cannot create the API client because base_url depends on a value "+
+				"known only after apply. Set a static value or remove the attribute to use the default endpoint.",
+		)
+	}
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	apiKey := resolveAPIKey(config.AdminAPIKey.ValueString(), os.Getenv("ANTHROPIC_ADMIN_KEY"))
 	if apiKey == "" {
 		resp.Diagnostics.AddAttributeError(
