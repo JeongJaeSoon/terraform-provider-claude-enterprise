@@ -208,4 +208,3 @@ func parseAPIError(status int, body []byte) error {
 	}
 	return apiErr
 }
-
