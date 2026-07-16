@@ -101,10 +101,16 @@ func (d *membersDataSource) Read(ctx context.Context, req datasource.ReadRequest
 		if row.Actor.Deleted {
 			continue
 		}
+		// Members without an email address are keyed only by user ID; an
+		// empty-string map key would silently collide across such members.
 		email := strings.ToLower(row.Actor.EmailAddress)
+		emailValue := types.StringNull()
+		if email != "" {
+			emailValue = types.StringValue(email)
+		}
 		m := memberModel{
 			UserID:            types.StringValue(row.Actor.UserID),
-			Email:             types.StringValue(email),
+			Email:             emailValue,
 			Name:              types.StringValue(row.Actor.Name),
 			EffectiveAmount:   types.StringPointerValue(row.Amount),
 			Currency:          types.StringValue(row.Currency),
@@ -113,7 +119,9 @@ func (d *membersDataSource) Read(ctx context.Context, req datasource.ReadRequest
 			SpendLimitID:      types.StringValue(row.SpendLimitID),
 			PeriodToDateSpend: types.StringValue(row.PeriodToDateSpend),
 		}
-		state.ByEmail[email] = m
+		if email != "" {
+			state.ByEmail[email] = m
+		}
 		state.ByUserID[row.Actor.UserID] = m
 	}
 

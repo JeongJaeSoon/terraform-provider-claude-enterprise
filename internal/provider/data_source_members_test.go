@@ -17,6 +17,7 @@ func TestAccMembersDataSource(t *testing.T) {
 		{UserID: "user_01A", Email: "Alice@Example.com", Name: "Alice"},
 		{UserID: "user_01B", Email: "bob@example.com", Name: "Bob"},
 		{UserID: "user_01C", Email: "carol@example.com", Name: "Carol", Deleted: true},
+		{UserID: "user_01D", Name: "NoMail"},
 	})
 	defer mock.Close()
 	mock.SeedOverride("user_01B", "50000")
@@ -41,8 +42,11 @@ data "claude-enterprise_members" "all" {}
 					resource.TestCheckResourceAttr("data.claude-enterprise_members.all", "by_user_id.user_01B.email", "bob@example.com"),
 					// Deleted members are excluded.
 					resource.TestCheckNoResourceAttr("data.claude-enterprise_members.all", "by_email.carol@example.com"),
+					// Members without an email appear only in by_user_id, with a null email field.
+					resource.TestCheckResourceAttr("data.claude-enterprise_members.all", "by_user_id.user_01D.user_id", "user_01D"),
+					resource.TestCheckNoResourceAttr("data.claude-enterprise_members.all", "by_user_id.user_01D.email"),
 					resource.TestCheckResourceAttr("data.claude-enterprise_members.all", "by_email.%", "2"),
-					resource.TestCheckResourceAttr("data.claude-enterprise_members.all", "by_user_id.%", "2"),
+					resource.TestCheckResourceAttr("data.claude-enterprise_members.all", "by_user_id.%", "3"),
 				),
 			},
 		},
