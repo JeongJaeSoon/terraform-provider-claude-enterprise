@@ -10,10 +10,12 @@ import (
 	"time"
 )
 
-// newTestClient returns a client whose sleep records delays instead of waiting.
+// newTestClient returns a client whose sleep records delays instead of
+// waiting. The rate limiter is effectively disabled (60000 req/min) so tests
+// don't block in real time; caller-supplied opts can still override it.
 func newTestClient(t *testing.T, baseURL string, opts ...Option) (*Client, *[]time.Duration) {
 	t.Helper()
-	c, err := New(baseURL, "k", opts...)
+	c, err := New(baseURL, "k", append([]Option{WithRequestsPerMinute(60000)}, opts...)...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,5 +120,29 @@ func TestRetryDelayCap(t *testing.T) {
 	resp := &http.Response{Header: http.Header{}}
 	if d := retryDelay(resp, 10); d != 30*time.Second {
 		t.Fatalf("expected 30s cap, got %v", d)
+	}
+}
+
+func TestRetryDelayRetryAfterParsing(t *testing.T) {
+	tests := []struct {
+		name       string
+		retryAfter string
+		want       time.Duration
+	}{
+		// Malformed or negative values fall back to exponential backoff
+		// (1s for attempt 0).
+		{"non-numeric", "abc", 1 * time.Second},
+		{"negative", "-5", 1 * time.Second},
+		{"fractional", "1.5", 1 * time.Second},
+		{"valid seconds", "3", 3 * time.Second},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp := &http.Response{Header: http.Header{}}
+			resp.Header.Set("Retry-After", tt.retryAfter)
+			if d := retryDelay(resp, 0); d != tt.want {
+				t.Fatalf("retryDelay(Retry-After=%q, 0) = %v, want %v", tt.retryAfter, d, tt.want)
+			}
+		})
 	}
 }
