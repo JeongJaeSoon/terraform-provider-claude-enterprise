@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -210,7 +211,77 @@ func (r *spendLimitResource) Delete(ctx context.Context, req resource.DeleteRequ
 	}
 }
 
+// ModifyPlan resolves user_email to user_id at plan time so that identity
+// changes surface as replacements before apply, regardless of whether the
+// configuration addresses members by id or email.
+func (r *spendLimitResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.Plan.Raw.IsNull() {
+		return // destroy plan
+	}
+	if r.data == nil {
+		return // provider not configured (e.g. terraform validate)
+	}
+
+	var email types.String
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("user_email"), &email)...)
+	if resp.Diagnostics.HasError() || email.IsNull() {
+		return
+	}
+
+	isCreate := req.State.Raw.IsNull()
+	if email.IsUnknown() {
+		if !isCreate {
+			resp.Diagnostics.AddAttributeError(
+				path.Root("user_email"),
+				"user_email must be known at plan time",
+				"The planned user_email is unknown, so the provider cannot tell whether the "+
+					"resource still targets the same member. Use a literal email or user_id, "+
+					"or apply the value's source first.",
+			)
+		}
+		return // create with unknown email resolves at apply time
+	}
+
+	userID, err := r.data.Resolver.UserIDByEmail(ctx, email.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddAttributeError(path.Root("user_email"), "Cannot resolve user_email", err.Error())
+		return
+	}
+	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("user_id"), userID)...)
+
+	if !isCreate {
+		var stateUserID types.String
+		resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("user_id"), &stateUserID)...)
+		if !stateUserID.IsNull() && stateUserID.ValueString() != userID {
+			resp.RequiresReplace = append(resp.RequiresReplace, path.Root("user_id"))
+		}
+	}
+}
+
 func (r *spendLimitResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	// Import by user_id is completed in the next task; spend_limit_id works now.
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	id := req.ID
+	if strings.HasPrefix(id, "user_") {
+		rows, err := r.data.Client.ListEffectiveSpendLimits(ctx, []string{id})
+		if err != nil {
+			resp.Diagnostics.AddError("Failed to look up spend limit for user", err.Error())
+			return
+		}
+		var overrideID string
+		for _, row := range rows {
+			if row.Actor.UserID == id && row.Source.Type == "user" {
+				overrideID = row.SpendLimitID
+				break
+			}
+		}
+		if overrideID == "" {
+			resp.Diagnostics.AddError(
+				"No per-user override to import",
+				fmt.Sprintf("Member %q has no per-user override; their effective limit is inherited. "+
+					"Create the override with Terraform instead of importing.", id),
+			)
+			return
+		}
+		id = overrideID
+	}
+	resp.State.SetAttribute(ctx, path.Root("id"), id)
 }
