@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build
+        run: go build ./...
+      - name: Check formatting
+        run: test -z "$(gofmt -l .)"
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      - name: Unit and acceptance tests (mock API)
+        run: go test ./... -count=1 -v
+        env:
+          TF_ACC: "1"
