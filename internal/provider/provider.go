@@ -2,12 +2,16 @@ package provider
 
 import (
 	"context"
+	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+
+	"github.com/JeongJaeSoon/terraform-provider-claude-enterprise/internal/client"
 )
 
 // claudeEnterpriseProvider implements a Terraform provider for the Claude
@@ -53,8 +57,61 @@ func (p *claudeEnterpriseProvider) Schema(_ context.Context, _ provider.SchemaRe
 	}
 }
 
-// Configure is completed in Task 6; for now it does nothing so the provider compiles.
-func (p *claudeEnterpriseProvider) Configure(_ context.Context, _ provider.ConfigureRequest, _ *provider.ConfigureResponse) {
+// providerData is handed to every resource and data source via
+// resp.ResourceData / resp.DataSourceData.
+type providerData struct {
+	Client *client.Client
+}
+
+// resolveAPIKey returns the effective key: explicit config wins over the
+// ANTHROPIC_ADMIN_KEY environment variable.
+func resolveAPIKey(configValue, envValue string) string {
+	if configValue != "" {
+		return configValue
+	}
+	return envValue
+}
+
+// ResolveAPIKeyForTest exposes resolveAPIKey to the external test package.
+func ResolveAPIKeyForTest(configValue, envValue string) string {
+	if envValue == "" {
+		envValue = os.Getenv("ANTHROPIC_ADMIN_KEY")
+	}
+	return resolveAPIKey(configValue, envValue)
+}
+
+func (p *claudeEnterpriseProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
+	var config providerModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	apiKey := resolveAPIKey(config.AdminAPIKey.ValueString(), os.Getenv("ANTHROPIC_ADMIN_KEY"))
+	if apiKey == "" {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("admin_api_key"),
+			"Missing Admin API key",
+			"Set the admin_api_key provider attribute or the ANTHROPIC_ADMIN_KEY environment variable. "+
+				"The key must be a scoped Admin API key (sk-ant-admin...) with read:spend_limits and write:spend_limits scopes.",
+		)
+		return
+	}
+
+	baseURL := client.DefaultBaseURL
+	if !config.BaseURL.IsNull() {
+		baseURL = config.BaseURL.ValueString()
+	}
+
+	c, err := client.New(baseURL, apiKey)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to create API client", err.Error())
+		return
+	}
+
+	data := &providerData{Client: c}
+	resp.ResourceData = data
+	resp.DataSourceData = data
 }
 
 func (p *claudeEnterpriseProvider) Resources(_ context.Context) []func() resource.Resource {
