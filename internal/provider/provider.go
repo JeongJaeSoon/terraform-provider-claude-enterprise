@@ -139,7 +139,7 @@ func (p *claudeEnterpriseProvider) Configure(ctx context.Context, req provider.C
 }
 
 func (p *claudeEnterpriseProvider) Resources(_ context.Context) []func() resource.Resource {
-	return nil
+	return []func() resource.Resource{NewSpendLimitResource}
 }
 
 func (p *claudeEnterpriseProvider) DataSources(_ context.Context) []func() datasource.DataSource {
