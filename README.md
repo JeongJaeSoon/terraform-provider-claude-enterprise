@@ -76,6 +76,10 @@ make test     # unit tests
 make testacc  # acceptance tests against a mock Admin API server (requires a local terraform binary)
 ```
 
+`tools/mockserver` runs the same `testutil` mock as a standalone HTTP server,
+for manually smoke-testing a locally built provider binary via
+`dev_overrides` and a real `terraform` CLI (see `examples/smoke`).
+
 ### Local development
 
 ```hcl
