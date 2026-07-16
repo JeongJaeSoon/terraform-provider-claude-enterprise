@@ -63,7 +63,6 @@ provider "claude-enterprise" {
 }
 
 func TestAccProviderMissingAPIKey(t *testing.T) {
-	t.Skip("enabled in Task 7")
 	if os.Getenv("TF_ACC") == "" {
 		t.Skip("TF_ACC not set")
 	}

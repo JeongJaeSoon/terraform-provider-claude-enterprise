@@ -142,5 +142,5 @@ func (p *claudeEnterpriseProvider) Resources(_ context.Context) []func() resourc
 }
 
 func (p *claudeEnterpriseProvider) DataSources(_ context.Context) []func() datasource.DataSource {
-	return nil
+	return []func() datasource.DataSource{NewMembersDataSource}
 }
