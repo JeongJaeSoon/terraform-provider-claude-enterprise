@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -153,5 +154,18 @@ func TestDeleteSpendLimit(t *testing.T) {
 	}
 	if !called {
 		t.Fatal("DELETE not sent")
+	}
+}
+
+func TestListEffectiveSpendLimitsRepeatedCursorAborts(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"data":[],"next_page":"page_1"}`))
+	}))
+	defer srv.Close()
+
+	c, _ := New(srv.URL, "k", WithRequestsPerMinute(60000))
+	_, err := c.ListEffectiveSpendLimits(context.Background(), nil)
+	if err == nil || !strings.Contains(err.Error(), "repeated cursor") {
+		t.Fatalf("expected repeated-cursor error, got %v", err)
 	}
 }

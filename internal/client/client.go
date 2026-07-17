@@ -84,6 +84,16 @@ func New(baseURL, apiKey string, opts ...Option) (*Client, error) {
 	for _, opt := range opts {
 		opt(c)
 	}
+	// Never follow redirects: the transport would forward x-api-key to the
+	// redirect target, leaking the org credential cross-origin. The 3xx
+	// response itself surfaces as an APIError instead.
+	if c.httpClient.CheckRedirect == nil {
+		hc := *c.httpClient
+		hc.CheckRedirect = func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
+		c.httpClient = &hc
+	}
 	return c, nil
 }
 
@@ -177,7 +187,7 @@ func (c *Client) do(ctx context.Context, method, path string, query url.Values, 
 			}
 			continue
 		}
-		if resp.StatusCode >= 400 {
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			return parseAPIError(resp.StatusCode, respBody)
 		}
 		if out != nil && len(respBody) > 0 {

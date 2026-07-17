@@ -119,3 +119,27 @@ func TestNewValidation(t *testing.T) {
 		t.Fatal("expected error for empty api key")
 	}
 }
+
+func TestDoDoesNotFollowRedirects(t *testing.T) {
+	var followed bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/elsewhere" {
+			followed = true
+			_, _ = w.Write([]byte(`{}`))
+			return
+		}
+		w.Header().Set("Location", "/elsewhere")
+		w.WriteHeader(http.StatusFound)
+	}))
+	defer srv.Close()
+
+	c, _ := New(srv.URL, "k")
+	err := c.do(context.Background(), http.MethodGet, "/v1/x", nil, nil, nil)
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != http.StatusFound {
+		t.Fatalf("expected 302 APIError, got %v", err)
+	}
+	if followed {
+		t.Fatal("client must not follow redirects (x-api-key would be forwarded)")
+	}
+}

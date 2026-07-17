@@ -2,6 +2,7 @@ package testutil
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
 	"github.com/JeongJaeSoon/terraform-provider-claude-enterprise/internal/client"
@@ -122,5 +123,24 @@ func TestMockSeedOverride(t *testing.T) {
 	}
 	if m.OverrideCount() != 1 {
 		t.Fatalf("OverrideCount = %d", m.OverrideCount())
+	}
+}
+
+func TestMockRejectsOutOfRangeCursor(t *testing.T) {
+	m, _ := newMock(t)
+	for _, cursor := range []string{"page_-1", "page_99"} {
+		req, err := http.NewRequest(http.MethodGet, m.URL()+"/v1/organizations/spend_limits/effective?page="+cursor, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("x-api-key", "test-key")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("cursor %q: expected 400, got %d", cursor, resp.StatusCode)
+		}
 	}
 }

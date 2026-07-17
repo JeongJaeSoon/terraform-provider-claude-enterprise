@@ -288,3 +288,28 @@ resource "claude-enterprise_spend_limit" "test" {
 		},
 	})
 }
+
+func TestAccSpendLimitImportInvalidIDFormat(t *testing.T) {
+	if os.Getenv("TF_ACC") == "" {
+		t.Skip("TF_ACC not set")
+	}
+	mock := newResourceMock(t)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: protoV6Factories(),
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig(mock.URL()) + `
+resource "claude-enterprise_spend_limit" "test" {
+  user_id = "user_01A"
+  amount  = "1"
+}
+`,
+				ResourceName:  "claude-enterprise_spend_limit.test",
+				ImportState:   true,
+				ImportStateId: "bogus_123",
+				ExpectError:   mustCompile(t, `Invalid import ID`),
+			},
+		},
+	})
+}

@@ -135,6 +135,9 @@ func TestRetryDelayRetryAfterParsing(t *testing.T) {
 		{"negative", "-5", 1 * time.Second},
 		{"fractional", "1.5", 1 * time.Second},
 		{"valid seconds", "3", 3 * time.Second},
+		// A valid but enormous header must not suspend Terraform beyond
+		// the backoff cap.
+		{"huge value capped", "99999", backoffCap},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

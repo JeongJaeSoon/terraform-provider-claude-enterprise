@@ -259,7 +259,18 @@ func (r *spendLimitResource) ModifyPlan(ctx context.Context, req resource.Modify
 }
 
 func (r *spendLimitResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	if r.data == nil {
+		resp.Diagnostics.AddError("Provider not configured", "The provider must be configured before importing spend limits.")
+		return
+	}
 	id := req.ID
+	if !strings.HasPrefix(id, "spl_") && !strings.HasPrefix(id, "user_") {
+		resp.Diagnostics.AddError(
+			"Invalid import ID",
+			fmt.Sprintf("Import expects a spend limit ID (spl_...) or a user ID (user_...), got %q.", id),
+		)
+		return
+	}
 	if strings.HasPrefix(id, "user_") {
 		rows, err := r.data.Client.ListEffectiveSpendLimits(ctx, []string{id})
 		if err != nil {
@@ -283,5 +294,5 @@ func (r *spendLimitResource) ImportState(ctx context.Context, req resource.Impor
 		}
 		id = overrideID
 	}
-	resp.State.SetAttribute(ctx, path.Root("id"), id)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
 }

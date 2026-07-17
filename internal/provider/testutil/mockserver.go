@@ -204,7 +204,7 @@ func (m *MockAdminAPI) handleEffective(w http.ResponseWriter, r *http.Request) {
 	offset := 0
 	if cursor := r.URL.Query().Get("page"); cursor != "" {
 		n, err := strconv.Atoi(strings.TrimPrefix(cursor, "page_"))
-		if err != nil {
+		if err != nil || n < 0 || n > len(rows) {
 			writeError(w, http.StatusBadRequest, "invalid_request_error", "cursor does not match current query parameters")
 			return
 		}

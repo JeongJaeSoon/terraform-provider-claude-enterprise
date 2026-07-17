@@ -78,6 +78,7 @@ func (c *Client) ListEffectiveSpendLimits(ctx context.Context, userIDs []string)
 	}
 
 	var all []EffectiveSpendLimit
+	seen := map[string]bool{}
 	for {
 		var page effectivePage
 		if err := c.do(ctx, http.MethodGet, spendLimitsEffectivePath, q, nil, &page); err != nil {
@@ -87,6 +88,10 @@ func (c *Client) ListEffectiveSpendLimits(ctx context.Context, userIDs []string)
 		if page.NextPage == nil || *page.NextPage == "" {
 			return all, nil
 		}
+		if seen[*page.NextPage] {
+			return nil, fmt.Errorf("spend limits pagination repeated cursor %q; aborting to avoid an infinite loop", *page.NextPage)
+		}
+		seen[*page.NextPage] = true
 		q.Set("page", *page.NextPage)
 	}
 }

@@ -23,7 +23,11 @@ func shouldRetry(status int) bool {
 func retryDelay(resp *http.Response, attempt int) time.Duration {
 	if s := resp.Header.Get("Retry-After"); s != "" {
 		if secs, err := strconv.Atoi(s); err == nil && secs >= 0 {
-			return time.Duration(secs) * time.Second
+			d := time.Duration(secs) * time.Second
+			if d > backoffCap {
+				return backoffCap
+			}
+			return d
 		}
 	}
 	d := time.Duration(float64(backoffBase) * math.Pow(2, float64(attempt)))
