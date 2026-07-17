@@ -11,3 +11,7 @@ crash.log
 
 # OS / editor
 .DS_Store
+
+# Internal development-process artifacts (local only, never published)
+docs/superpowers/
+.superpowers/
