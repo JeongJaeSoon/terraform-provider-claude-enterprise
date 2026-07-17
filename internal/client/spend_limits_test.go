@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -123,7 +122,7 @@ func TestUpsertSpendLimit(t *testing.T) {
 		if body.Scope.Type != "user" || body.Scope.UserID != "user_01A" || body.Amount != "75000" || body.Period != "monthly" {
 			t.Errorf("unexpected body: %+v", body)
 		}
-		fmt.Fprint(w, `{"type":"spend_limit","id":"spl_01N","created_at":"2026-05-11T10:02:44Z","updated_at":"2026-05-11T10:02:44Z","scope":{"type":"user","user_id":"user_01A"},"amount":"75000","currency":"USD","period":"monthly"}`)
+		_, _ = w.Write([]byte(`{"type":"spend_limit","id":"spl_01N","created_at":"2026-05-11T10:02:44Z","updated_at":"2026-05-11T10:02:44Z","scope":{"type":"user","user_id":"user_01A"},"amount":"75000","currency":"USD","period":"monthly"}`))
 	}))
 	defer srv.Close()
 
