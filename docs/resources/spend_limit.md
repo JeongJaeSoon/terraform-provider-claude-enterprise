@@ -77,3 +77,11 @@ Terraform instead of importing in that case:
 ```shell
 terraform import claude-enterprise_spend_limit.x user_01AbC...
 ```
+
+~> **Note** Import populates `id` and, on refresh, `user_id`, `amount`,
+`period`, and `currency` — but never `user_email`, which is a
+configuration-only identity. If your configuration addresses the resource
+by `user_email`, the first `terraform plan` after import shows one
+in-place update (setting `user_email` in state); it is non-destructive
+and converges after a single apply. Configurations using `user_id` see a
+clean no-op plan immediately.

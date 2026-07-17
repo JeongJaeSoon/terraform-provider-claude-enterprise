@@ -3425,7 +3425,7 @@ git commit -m "test: add local dev-override smoke configuration" || echo "nothin
 1. **키 준비**: claude.ai에서 `read:spend_limits` + `write:spend_limits` 스코프의 Admin API key 발급 → `export ANTHROPIC_ADMIN_KEY=sk-ant-admin...`
 2. **Read-only 검증**: `examples/full`에서 dev_overrides + 빈 `spend_limit_overrides`로 `terraform plan` → `members_effective` output으로 전 멤버 실효 한도가 올바른지 눈으로 확인 (쓰기 0회)
 3. **소액 write 검증**: `spend_limit_overrides = { "<본인 email>" = "1000" }` (10 USD)로 apply → claude.ai 콘솔에서 확인 → `"2000"`으로 변경 후 재apply(in-place update 확인) → `terraform destroy`로 상속 복귀 확인
-4. **Import 검증**: 콘솔에서 만든 override를 `terraform import 'claude-enterprise_spend_limit.override["<email>"]' user_01...`로 흡수 → `terraform plan`이 no-op인지 확인
+4. **Import 검증**: 콘솔에서 만든 override를 `terraform import 'claude-enterprise_spend_limit.override["<email>"]' user_01...`로 흡수 → 첫 `terraform plan`은 `user_email`을 state에 채우는 in-place update 1회가 정상(파괴적 변경 아님, docs/resources/spend_limit.md Import 노트 참조) → apply 후 재plan이 no-op인지 확인. Replace가 뜨면 비정상이므로 중단
 5. **불일치 발견 시**: 실제 API 응답이 mock과 다른 부분(필드명·id 안정성·에러 형식)을 스펙에 기록하고 mock을 실제에 맞춘 뒤 회귀 테스트 추가
 6. **org 실적용**: GitHub repo 생성·푸시 → 조직의 TF 구성에서 이 provider 사용, GitHub Actions에서 PR=plan / merge=apply, `ANTHROPIC_ADMIN_KEY`는 Actions secret (state backend는 조직 표준을 따름)
 7. **Registry publish**: 검증 통과 후 `docs/RELEASING.md` 절차로 v0.1.0 태그 → Registry 등록
