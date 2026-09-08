@@ -51,6 +51,35 @@ func TestResolverCaseInsensitiveAndCached(t *testing.T) {
 	}
 }
 
+func TestResolverUserOverrideByLimitIDSharesOneListing(t *testing.T) {
+	mock, r := newResolverFixture(t)
+	ctx := context.Background()
+
+	id := mock.SeedOverride("user_01A", "10000")
+
+	row, ok, err := r.UserOverrideByLimitID(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok || row.Actor.UserID != "user_01A" || row.Amount == nil || *row.Amount != "10000" {
+		t.Fatalf("got %+v ok=%v", row, ok)
+	}
+
+	// The email index comes from the same listing, so no second walk.
+	fills := mock.EffectiveRequestCount()
+	if _, err := r.UserIDByEmail(ctx, "alice@example.com"); err != nil {
+		t.Fatal(err)
+	}
+	if mock.EffectiveRequestCount() != fills {
+		t.Fatalf("listing walked again: %d -> %d", fills, mock.EffectiveRequestCount())
+	}
+
+	// Inherited rows are not user-scope overrides.
+	if _, ok, err := r.UserOverrideByLimitID(ctx, "spl_inherited_user_01B"); err != nil || ok {
+		t.Fatalf("inherited row must not resolve: ok=%v err=%v", ok, err)
+	}
+}
+
 func TestResolverUnknownEmail(t *testing.T) {
 	_, r := newResolverFixture(t)
 	_, err := r.UserIDByEmail(context.Background(), "ghost@example.com")

@@ -148,6 +148,28 @@ func (r *spendLimitResource) Read(ctx context.Context, req resource.ReadRequest,
 		return
 	}
 
+	row, ok, err := r.data.Resolver.UserOverrideByLimitID(ctx, state.ID.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to read spend limit", err.Error())
+		return
+	}
+	if !ok {
+		// The cached listing can lag an override written moments ago, so
+		// confirm with a direct read before dropping the resource.
+		r.readOne(ctx, state, resp)
+		return
+	}
+
+	state.UserID = types.StringValue(row.Actor.UserID)
+	state.Amount = types.StringPointerValue(row.Amount)
+	state.Period = types.StringValue(row.Period)
+	state.Currency = types.StringValue(row.Currency)
+	// user_email is configuration identity the API cannot return; keep as-is.
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+}
+
+// readOne is the per-resource fallback for a cache miss.
+func (r *spendLimitResource) readOne(ctx context.Context, state spendLimitModel, resp *resource.ReadResponse) {
 	sl, err := r.data.Client.GetSpendLimit(ctx, state.ID.ValueString())
 	if client.IsNotFound(err) {
 		resp.State.RemoveResource(ctx)
@@ -167,7 +189,6 @@ func (r *spendLimitResource) Read(ctx context.Context, req resource.ReadRequest,
 	state.Amount = types.StringPointerValue(sl.Amount)
 	state.Period = types.StringValue(sl.Period)
 	state.Currency = types.StringValue(sl.Currency)
-	// user_email is configuration identity the API cannot return; keep as-is.
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
